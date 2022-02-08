@@ -90,10 +90,3 @@ class TestArimaEstimator(unittest.TestCase):
             for index in indices_to_drop:
                 self.assertTrue(df_filled["y"][index], df_filled["y"][index - 1])
             self.assertEqual(ds.to_list(), df_filled["ds"].to_list())
-
-    def test_validate_ds_freq_matched_frequency(self):
-        ArimaEstimator._validate_ds_freq(self.df, frequency='D')
-
-    def test_validate_ds_freq_unmatched_frequency(self):
-        with pytest.raises(ValueError, match="includes different frequency") as e:
-            ArimaEstimator._validate_ds_freq(self.df, frequency='W')

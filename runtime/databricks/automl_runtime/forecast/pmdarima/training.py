@@ -121,12 +121,3 @@ class ArimaEstimator:
         df_agg = df.set_index("ds").resample(rule=rule).mean().reset_index()
         df_filled = df_agg.fillna(method='pad')
         return df_filled
-
-    @staticmethod
-    def _validate_ds_freq(df: pd.DataFrame, frequency: str):
-        start_ds = df["ds"].min()
-        diff = (df["ds"] - start_ds) / pd.Timedelta(1, unit=frequency)
-        if not diff.apply(float.is_integer).all():
-            raise ValueError(
-                f"Input time column includes different frequency than the specified frequency {frequency}."
-            )
