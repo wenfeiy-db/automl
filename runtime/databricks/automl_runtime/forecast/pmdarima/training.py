@@ -25,7 +25,7 @@ from prophet.diagnostics import performance_metrics
 
 from databricks.automl_runtime.forecast.pmdarima.diagnostics import cross_validation
 from databricks.automl_runtime.forecast.utils import generate_cutoffs
-from databricks.automl_runtime.forecast import OFFSET_ALIAS_MAP
+from databricks.automl_runtime.forecast import OFFSET_ALIAS_MAP, WEEK_OFFSET
 
 
 class ArimaEstimator:
@@ -59,11 +59,8 @@ class ArimaEstimator:
         history_pd = df.sort_values(by=["ds"]).reset_index(drop=True)
         history_pd["ds"] = pd.to_datetime(history_pd["ds"])
 
-        # Check if the time has consistent frequency
-        self._validate_ds_freq(df, self._frequency_unit)
-
-        # Impute missing time steps
-        history_pd = self._fill_missing_time_steps(history_pd, self._frequency_unit)
+        # Aggregate by given frequency range and fill missing time steps if necessary
+        history_pd = self._aggregate_and_fill_na(history_pd, self._frequency_unit)
 
         # Generate cutoffs for cross validation
         cutoffs = generate_cutoffs(history_pd, horizon=self._horizon, unit=self._frequency_unit,
@@ -108,13 +105,21 @@ class ArimaEstimator:
         return {"metrics": metrics, "model": arima_model}
 
     @staticmethod
-    def _fill_missing_time_steps(df: pd.DataFrame, frequency: str):
-        # Forward fill missing time steps
-        df_filled = df.set_index("ds").resample(rule=OFFSET_ALIAS_MAP[frequency]).pad().reset_index()
-        start_ds, modified_start_ds = df["ds"].min(), df_filled["ds"].min()
-        if start_ds != modified_start_ds:
-            offset = modified_start_ds - start_ds
-            df_filled["ds"] = df_filled["ds"] - offset
+    def _aggregate_and_fill_na(df: pd.DataFrame, frequency: str):
+        """
+        Aggregate the target values by given frequency and fill any missing time steps.
+
+        If there are multiple data points within one frequency range, such as consecutive days with a weekly frequency,
+        this function takes average of the values. The first timestamp in the dataframe is used to decide the start
+        point of the timestamps after aggregation. After aggregation, null values will be filled by forward filling.
+        :param df: A pd.Dataframe with a time column 'ds' and a target column 'y'.
+        :param frequency: Desired frequency of the time series.
+        :return:
+        """
+        frequency_alias = OFFSET_ALIAS_MAP[frequency]
+        rule = "7d" if frequency_alias == WEEK_OFFSET else frequency_alias
+        df_agg = df.set_index("ds").resample(rule=rule).mean().reset_index()
+        df_filled = df_agg.fillna(method='pad')
         return df_filled
 
     @staticmethod

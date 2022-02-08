@@ -59,7 +59,24 @@ class TestArimaEstimator(unittest.TestCase):
         self.assertIn("metrics", result)
         self.assertIsInstance(result["model"], pm.arima.ARIMA)
 
-    def test_fill_missing_time_steps(self):
+    def test_aggregate_and_fill_na(self):
+        df_daily_missing = self.df.drop(range(4, 7))
+        df_expected = pd.DataFrame({"ds": [pd.Timestamp('2020-07-01 00:00:00'),
+                                           pd.Timestamp('2020-07-08 00:00:00'),
+                                           pd.Timestamp('2020-07-15 00:00:00'),
+                                           pd.Timestamp('2020-07-22 00:00:00')],
+                                    "y": [1.5, 1.5, 8.5, 11]})
+        df_processed = ArimaEstimator._aggregate_and_fill_na(df_daily_missing, frequency='W')
+        pd.testing.assert_frame_equal(df_expected, df_processed)
+
+    def test_aggregate_and_fill_na_only_aggregation(self):
+        df = pd.DataFrame({"ds": pd.date_range(start="2020-07-01", periods=144, freq='h'), "y": range(144)})
+        df_expected = pd.DataFrame({"ds": pd.date_range(start="2020-07-01", periods=6, freq='d'),
+                                    "y": [11.5, 35.5, 59.5, 83.5, 107.5, 131.5]})
+        df_processed = ArimaEstimator._aggregate_and_fill_na(df, frequency='d')
+        pd.testing.assert_frame_equal(df_expected, df_processed)
+
+    def test_aggregate_and_fill_na_only_filling(self):
         supported_freq = ["W", "days", "hr", "min", "sec"]
         start_ds = pd.Timestamp("2020-07-01")
         for frequency in supported_freq:
@@ -69,7 +86,7 @@ class TestArimaEstimator(unittest.TestCase):
                 ds = ds - offset
             indices_to_drop = [5, 8]
             df_missing = pd.DataFrame({"ds": ds, "y": range(12)}).drop(indices_to_drop).reset_index(drop=True)
-            df_filled = ArimaEstimator._fill_missing_time_steps(df_missing, frequency=frequency)
+            df_filled = ArimaEstimator._aggregate_and_fill_na(df_missing, frequency=frequency)
             for index in indices_to_drop:
                 self.assertTrue(df_filled["y"][index], df_filled["y"][index - 1])
             self.assertEqual(ds.to_list(), df_filled["ds"].to_list())

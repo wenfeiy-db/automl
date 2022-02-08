@@ -14,8 +14,13 @@
 # limitations under the License.
 #
 
+WEEK_OFFSET = 'W'
+
 OFFSET_ALIAS_MAP = {
-    "W": "W",
+    "w": WEEK_OFFSET,
+    "W": WEEK_OFFSET,
+    "week": WEEK_OFFSET,
+    "weeks": WEEK_OFFSET,
     "d": "D",
     "D": "D",
     "days": "D",
